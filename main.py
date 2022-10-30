@@ -15,6 +15,7 @@ from openpyxl import load_workbook, Workbook
 
 import json
 import os
+import asyncio
 
 DIRECTIONS = {"НТН": "направление точных наук",
               "НЕН": "направление естественных",
@@ -169,7 +170,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.choose_file_btn.clicked.connect(self.get_xl_file)
         self.choose_html_file_btn.clicked.connect(self.get_html_file)
         self.choose_txt_file_btn.clicked.connect(self.get_txt_file)
-        self.send.clicked.connect(self.send_messages)
+        self.send.clicked.connect(lambda: asyncio.run(self.send_messages()))
 
         self.excel_table = None
         self.message_text = None
@@ -218,14 +219,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.alt_message_text = f.read()
             self.txt_filename_label.setText(filename)
 
-    def send_messages(self):
+    async def send_messages(self):
         if not self.excel_table:
             self.statusbar.showMessage("Не прикреплена таблица Excel")
+            return
         elif not self.message_text:
             self.statusbar.showMessage(
                 "Не прикреплён HTML файл или прикреплён пустой")
+            return
         elif not self.login_input.text() or not self.password_input.text():
             self.statusbar.showMessage("Не вписан логин или пароль")
+            return
 
         self.config.login = self.login_input.text()
 
@@ -243,6 +247,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         students = {}
         for row in self.excel_table.rows:
             name = row[self.config.name_col].value
+            if name is None:
+                continue
             # TODO: Убедиться, что у таблицы школьников именно такая структура
             #  (чтобы грамотно подставлять в письмо строки)
             if name not in students.keys():
@@ -288,6 +294,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 ws.cell(ws.max_row + 1, 3, student.places)
                 ws.cell(ws.max_row + 1, 4, student.email)
         wb.save("troubles.xlsx")
+        self.statusbar.showMessage("Сообщения успешно отправлены. "
+                                   "Проверьте файл troubles.xlsx")
 
 
 def exception_hook(exctype, value, traceback):
